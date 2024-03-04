@@ -7,8 +7,8 @@ from matplotlib import style
 
 style.use("ggplot")  # Set the plotting style
 
-SIZE = 10  # Size of the grid(world)
-EPISODES = 1000  # Number of episodes we will run in our simulation
+SIZE = 20  # Size of the grid(world)
+EPISODES = 500  # Number of episodes we will run in our simulation
 MOVE_PENALTY = 1  # Penalty for moving (to discourage excessive movement)
 REWARD = 10  # Reward for reaching the landmarkq
 
@@ -30,8 +30,8 @@ PASTEL = {1: (0, 255, 0)}
 class AGENT:
     def __init__(self):
         # Initialize agent (character and landmark) at a random position
-        self.x = np.random.randint(0, SIZE)
-        self.y = np.random.randint(0, SIZE)
+        self.x = np.random.randint(0, SIZE // 2)
+        self.y = np.random.randint(SIZE // 4, 3 * SIZE // 4)
         
     def __str__(self):
         # String representation for debugging
@@ -69,13 +69,27 @@ episode_rewards = []  # Track rewards per episode
 
 def mountain(size):
     mountain = np.zeros((size, size))
-    base_y = np.random.randint(0, size - 3)
-    base_x = np.random.randint(0, size - 3)
-    mountain[base_x + 1, base_y : base_y + 3] = 1
-    mountain [base_x, base_y + 1] = 1
+
+    # Parameters for mountain size
+    peak_height = size // 4  # Make the peak height smaller
+    base_width = size // 4  # Make the base width smaller
+
+    # Starting point for the base of the mountain at the top right
+    base_start_col = size - base_width
+
+    # Create the pyramid from top to bottom
+    for i in range(peak_height):
+        # Calculate the starting and ending point for each row
+        start = base_start_col + (peak_height - i - 1)
+        end = size - (peak_height - i - 1)
+        mountain[i, start:end] = 1
+
     return mountain
 
 mountain_render = mountain(SIZE)
+
+def mountain_collision(character_x, character_y, mountain_grid):
+    return mountain_grid[int(character_y), int(character_x)] > 0
 
 # Main loop for running episodes
 for episode in range(EPISODES):
@@ -97,8 +111,9 @@ for episode in range(EPISODES):
             # Explore a new action
             action = np.random.randint(0, 4)
         character.action(action)
-        if mountain_render[character.y, character.x] == 1:
-            reward = REWARD + np.random.rand()
+        if mountain_collision(character.x, character.y, mountain_render):
+            reward = REWARD
+            print(f"Reward achieved at episode {episode}, step{i}")
         else:
             reward = -MOVE_PENALTY
 
@@ -115,13 +130,14 @@ for episode in range(EPISODES):
         # Rendering the environment if necessary
         if show:
             env = np.zeros((SIZE, SIZE, 3), dtype=np.uint8)
-            env[character.y][character.x] = PASTEL[CHARACTER_1]  # Character location
+            env = np.full((SIZE, SIZE, 3), 128, dtype=np.uint8)
             mountain_env = env.copy()
             mountain_env[mountain_render > 0] = (0, 0, 255)
-            img = Image.fromarray(mountain_env, 'RGB')
-            img = img.resize((300, 300), Image.NEAREST)
-            cv2.imshow("image", np.array(img))
-            if cv2.waitKey(1) & 0xFF == ord('q'):
+            mountain_env = cv2.resize(mountain_env, (300,300), interpolation = cv2.INTER_NEAREST)
+            character_position = (int(character.x * 300 / SIZE), int(character.y * 300 / SIZE))
+            cv2.circle(mountain_env, character_position, 15, (0, 255, 0), -1)
+            cv2.imshow("image", mountain_env)
+            if cv2.waitKey(50) & 0xFF == ord('q'):
                 episode += SKIP
                 break
 

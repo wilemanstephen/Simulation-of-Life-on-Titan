@@ -136,7 +136,7 @@ for episode in range(EPISODES):
             character_position = (int(character.x * 300 / SIZE), int(character.y * 300 / SIZE))
             cv2.circle(mountain_env, character_position, 15, (0, 255, 0), -1)
             cv2.imshow("image", mountain_env)
-            if cv2.waitKey(50) & 0xFF == ord('q'):
+            if cv2.waitKey(1) & 0xFF == ord('q'):
                 episode += SKIP
                 break
 

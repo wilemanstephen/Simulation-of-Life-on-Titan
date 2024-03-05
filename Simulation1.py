@@ -16,7 +16,7 @@ EPSILON_DECAY = 0.9995  # Rate at which the exploration rate decays
 SHOW_EVERY = 1  # How often to display the simulation (in our case once every 25 episodes)
 SKIP = 1
 
-LEARNING_RATE = 0.1  # Learning rate for Q-learning
+LEARNING_RATE = 0.5  # Learning rate for Q-learning
 DISCOUNT = 0.99  # Discount factor for future rewards
 
 # Defining objects in our environment
@@ -136,7 +136,7 @@ for episode in range(EPISODES):
             character_position = (int(character.x * 300 / SIZE), int(character.y * 300 / SIZE))
             cv2.circle(mountain_env, character_position, 15, (0, 255, 0), -1)
             cv2.imshow("image", mountain_env)
-            if cv2.waitKey(300) & 0xFF == ord('q'):
+            if cv2.waitKey(200) & 0xFF == ord('q'):
                 episode += SKIP
                 break
 

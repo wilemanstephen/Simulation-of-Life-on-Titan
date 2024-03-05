@@ -7,14 +7,14 @@ from matplotlib import style
 style.use("ggplot")  # Set the plotting style
 
 SIZE = 20  # Size of the grid(world)
-EPISODES = 500  # Number of episodes we will run in our simulation
+EPISODES = 50  # Number of episodes we will run in our simulation
 MOVE_PENALTY = 1  # Penalty for moving (to discourage excessive movement)
 REWARD = 10  # Reward for reaching the landmarkq
 
 EPSILON = 0.99  # Initial exploration rate
 EPSILON_DECAY = 0.9995  # Rate at which the exploration rate decays
-SHOW_EVERY = 25  # How often to display the simulation (in our case once every 25 episodes)
-SKIP = 25
+SHOW_EVERY = 1  # How often to display the simulation (in our case once every 25 episodes)
+SKIP = 1
 
 LEARNING_RATE = 0.1  # Learning rate for Q-learning
 DISCOUNT = 0.99  # Discount factor for future rewards
@@ -136,7 +136,7 @@ for episode in range(EPISODES):
             character_position = (int(character.x * 300 / SIZE), int(character.y * 300 / SIZE))
             cv2.circle(mountain_env, character_position, 15, (0, 255, 0), -1)
             cv2.imshow("image", mountain_env)
-            if cv2.waitKey(1) & 0xFF == ord('q'):
+            if cv2.waitKey(300) & 0xFF == ord('q'):
                 episode += SKIP
                 break
 

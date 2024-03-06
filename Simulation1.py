@@ -9,7 +9,7 @@ style.use("ggplot")  # Set the plotting style
 SIZE = 20  # Size of the grid(world)
 EPISODES = 50  # Number of episodes we will run in our simulation
 MOVE_PENALTY = 1  # Penalty for moving (to discourage excessive movement)
-REWARD = 10  # Reward for reaching the landmarkq
+REWARD = 10  # Reward for reaching the landmark
 
 EPSILON = 0.99  # Initial exploration rate
 EPSILON_DECAY = 0.9995  # Rate at which the exploration rate decays

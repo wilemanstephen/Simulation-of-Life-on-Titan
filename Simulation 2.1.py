@@ -8,8 +8,8 @@ style.use("ggplot")  # Set the plotting style
 
 SIZE = 20  # Size of the grid(world)
 EPISODES = 50  # Number of episodes we will run in our simulation
-MOVE_PENALTY = 1  # Penalty for moving (to discourage excessive movement)
-MOUNTAIN_REWARD = 10  # Reward for reaching the mountain landmark
+MOVE_PENALTY = 10  # Penalty for moving (to discourage excessive movement)
+MOUNTAIN_REWARD = 10  # Reward for reaching the  mountain landmark
 LAKE_REWARD = 5 # Reward for reaching the lake landmark
 CONSECUTIVE_PENALTY = 7 # Penalty for visiting the lake or the mountain 3 times in a row
 

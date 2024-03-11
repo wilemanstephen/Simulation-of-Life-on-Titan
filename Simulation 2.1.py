@@ -3,6 +3,9 @@ import numpy as np
 import cv2
 import matplotlib.pyplot as plt
 from matplotlib import style
+import pickle
+import os
+import re
 
 style.use("ggplot")  # Set the plotting style
 
@@ -82,6 +85,20 @@ if 'q_table' not in globals():
 
 episode_rewards = []  # Track rewards per episode
 
+DIRECTORY = "Data S2.1" # Directory where all Q-Tables to be saved
+if not os.path.exists(DIRECTORY):
+    os.makedirs(DIRECTORY)
+
+def next_run_number(directory):
+    max_num = 0
+    for filename in os.listdir(directory):
+        match = re.match(r"Simulation 2.1_(\d+).pickle", filename)
+        if match:
+            num = int(match.group(1))
+            if num > max_num:
+                max_num = num
+    return max_num + 1
+
 def mountain(size):
     mountain = np.zeros((size, size))
 
@@ -118,6 +135,8 @@ lake_render = lake(SIZE)
 def lake_collision(character_x, character_y, lake_grid):
     return lake_grid[int(character_y), int(character_x)] > 0
 
+run_number = next_run_number(DIRECTORY)
+
 # Main loop for running episodes
 for episode in range(EPISODES):
     character = AGENT()
@@ -130,6 +149,7 @@ for episode in range(EPISODES):
         show = False
 
     episode_reward = 0
+
     for i in range(200):  # Limit the number of steps per episode
         obs = (character - character)  # Observation is the relative position to the landmark
         if np.random.random() > EPSILON:
@@ -190,8 +210,9 @@ for episode in range(EPISODES):
     episode_rewards.append(episode_reward)
     EPSILON *= EPSILON_DECAY  # Decay epsilon
 
-    if episode >= EPISODES:
-        break
+    if episode >= EPISODES - 1:
+        with open(os.path.join(DIRECTORY, f"Simulation 2.1qq_{run_number}.pickle"), 'wb') as f:
+            pickle.dump(q_table, f)
 
 # Plot the rewards over episodes
 plt.plot(np.arange(len(episode_rewards)), episode_rewards)

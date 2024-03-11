@@ -182,7 +182,7 @@ for episode in range(EPISODES):
         # Update Q-values using the Q-learning algorithm
         new_obs = (character - character)  # New observation after taking the action
         # Get the maximum Q-value for the new observation
-        max_future_q = np.max(q_table.get(new_obs, np.zeros(4))) # Use .get() to avoid KeyError
+        max_future_q = np.max(q_table.get(new_obs, np.zeros(4)))
         current_q = q_table[obs][action]
 
         # Calculate the new Q-value

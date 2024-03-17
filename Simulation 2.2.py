@@ -11,11 +11,11 @@ style.use("ggplot")  # Set the plotting style
 
 SIZE = 20  # Size of the grid(world)
 EPISODES = 50  # Number of episodes we will run in our simulation
-MOVE_PENALTY = 4  # Penalty for moving (to discourage excessive movement)
+MOVE_PENALTY = 1  # Penalty for moving (to discourage excessive movement)
 REWARD = 10  # Reward for reaching the landmark
 
-EPSILON = 0.99  # Initial exploration rate
-EPSILON_DECAY = 0.9995  # Rate at which the exploration rate decays
+EPSILON = 0.9  # Initial exploration rate
+EPSILON_DECAY = 0.9998  # Rate at which the exploration rate decays
 SHOW_EVERY = 1  # How often to display the simulation (in our case once every 25 episodes)
 SKIP = 1
 
@@ -46,13 +46,13 @@ class AGENT:
         
     def action(self, choice):
         # The character executes movement based on action choice
-        if choice == 0:
+        if choice == 0 and self.x < SIZE - 1:
             self.move(x=1, y=0)
-        elif choice == 1:
+        elif choice == 1 and self.x > 0:
             self.move(x=-1, y=0)
-        elif choice == 2:
+        elif choice == 2 and self.y < SIZE - 1:
             self.move(x=0, y=1)
-        elif choice == 3:
+        elif choice == 3 and self.y > 0:
             self.move(x=0, y=-1)
             
     def move(self, x=False, y=False):
@@ -64,15 +64,17 @@ class AGENT:
 if 'q_table_1' not in globals():
     q_table_1 = {}
     # Populate the table with random values for all state-action pairs
-    for x in range(-SIZE + 1, SIZE):
-        for y in range(-SIZE + 1, SIZE):
-            q_table_1[(x, y)] = [np.random.uniform(-5, 0) for i in range(4)]
+    for x in range(SIZE):
+        for y in range(SIZE):
+            for on_mountain in [True, False]:
+                q_table_1[((x,y), on_mountain)] = [np.random.uniform(-2, 0) for _ in range(4)]
 
 if 'q_table_2' not in globals():
     q_table_2 = {}
-    for x in range(-SIZE + 1, SIZE):
-        for y in range(-SIZE + 1, SIZE):
-            q_table_2[(x,y)] = [np.random.uniform(-5, 0) for i in range(4)]
+    for x in range(SIZE):
+        for y in range(SIZE):
+            for on_mountain in [True, False]:
+                q_table_2[((x,y), on_mountain)] = [np.random.uniform(-2, 0) for _ in range(4)]
 
 episode_rewards = []  # Track rewards per episode
 
@@ -115,16 +117,11 @@ mountain_render = mountain(SIZE)
 def mountain_collision(character_x, character_y, mountain_grid):
     return mountain_grid[int(character_y), int(character_x)] > 0
 
-def distance_mountain(character, mountain_render):
-    distance = [np.sqrt((character.x - col)**2 + (character.y - row)**2) for row in range(SIZE) for col in range(SIZE) if mountain_render[row, col] == 1]
-    return min(distance) if distance else SIZE
-
 def observation(character, mountain_render):
-    for row in range(SIZE):
-        for col in range(SIZE):
-            if mountain_render[row, col] == 1:
-                return (character.x - col, character.y - row)
-    return(0, 0)
+    char_pos = (character.x, character.y)
+    on_mountain = mountain_collision(character.x, character.y, mountain_render)
+    state = (char_pos, on_mountain)
+    return state
 
 character1_run_number = next_run_number(DIRECTORY, 'character1')
 character2_run_number = next_run_number(DIRECTORY, 'character2')
@@ -143,39 +140,67 @@ for episode in range(EPISODES):
     else:
         show = False
 
-    episode_reward = 0
+    episode_reward1 = 0
+    episode_reward2 = 0
 
     for i in range(200):  # Limit the number of steps per episode
         obs1 = observation(character1, mountain_render)
         obs2 = observation(character2, mountain_render)
         action1 = np.random.randint(0,4) if np.random.random() > EPSILON else np.argmax(q_table_1[obs1])
         action2 = np.random.randint(0,4) if np.random.random() > EPSILON else np.argmax(q_table_2[obs2])
+        if not hasattr(character1, 'recent_positions'):
+            character1.recent_positions = []
+        if not hasattr(character2, 'recent_positions'):
+            character2.recent_positions = []
+
+        reward1 = 0
+        reward2 = 0
+        
+        def update_position_memory(agent, new_position):
+            memory_size = 5
+            agent.recent_positions.append(new_position)
+            if len(agent.recent_positions) > memory_size:
+                agent.recent_positions.pop(0)
+        
+        def position_in_memory(agent, position):
+            return position in agent.recent_positions
+        
+        new_pos1 = (character1.x, character1,y)
+        new_pos2 = (character2.x, character2.y)
+
+        update_position_memory(character1, new_pos1)
+        update_position_memory(character2, new_pos2)
+
+        if position_in_memory(character1, new_pos1):
+            reward1 -= MOVE_PENALTY
+        
+        if position_in_memory(character2, new_pos2):
+            reward2 -= MOVE_PENALTY
+        
+        new_pos1 = (character1.x, character1.y)
+        new_pos2 = (character2.x, character2.y)
         character1.action(action1)
         character2.action(action2)
         if mountain_collision(character1.x, character1.y, mountain_render):
-            reward = REWARD
+            reward1 = REWARD
             print(f"Character 1 achieved reward at episode {episode}, step{i}")
         else:
-            reward = -MOVE_PENALTY
+            reward1 = -MOVE_PENALTY
         if mountain_collision(character2.x, character2.y, mountain_render):
-            reward = REWARD
+            reward2 = REWARD
             print(f"Character 2 achieved reward at episode {episode}, step{i}")
         else:
-            reward = -MOVE_PENALTY
+            reward2 = -MOVE_PENALTY
 
         # Update Q-values using the Q-learning algorithm
         max_future_q_1 = np.max(q_table_1[obs1])
         current_q_1 = q_table_1[obs1][action1]
         # Calculate the new Q-value
-        new_q_1 = (1 - LEARNING_RATE) * current_q_1 + LEARNING_RATE * (reward + DISCOUNT * max_future_q_1)
+        new_q_1 = (1 - LEARNING_RATE) * current_q_1 + LEARNING_RATE * (reward1 + DISCOUNT * max_future_q_1)
         
         max_future_q_2 = np.max(q_table_2[obs2])
         current_q_2 = q_table_2[obs2][action2]
-        new_q_2 = (1 - LEARNING_RATE) * current_q_2 + LEARNING_RATE * (reward + DISCOUNT * max_future_q_2)
-
-        reward_1 = REWARD - distance_mountain(character1, mountain_render)
-        reward_2 = REWARD - distance_mountain(character2, mountain_render)
-
+        new_q_2 = (1 - LEARNING_RATE) * current_q_2 + LEARNING_RATE * (reward2 + DISCOUNT * max_future_q_2)
         # Rendering the environment if necessary
         if show:
             env = np.zeros((SIZE, SIZE, 3), dtype=np.uint8)
@@ -193,11 +218,12 @@ for episode in range(EPISODES):
                 episode += SKIP
                 break
 
-        episode_reward += reward
-        if reward == REWARD:
+        episode_reward1 += reward1
+        episode_reward2 += reward2
+        if reward1 == REWARD or reward2 == episode_rewards:
             break  # Ends the episode if the reward is obtained
 
-    episode_rewards.append(episode_reward)
+    episode_rewards.append(episode_reward1 + episode_reward2)
     EPSILON *= EPSILON_DECAY  # Decay epsilon
     if EPSILON < 0.1:
         EPSILON = 0.1

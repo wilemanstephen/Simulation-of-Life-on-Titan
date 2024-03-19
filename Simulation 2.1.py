@@ -21,8 +21,8 @@ EPSILON_DECAY = 0.9995  # Rate at which the exploration rate decays
 SHOW_EVERY = 1  # How often to display the simulation (in our case once every 25 episodes)
 SKIP = 1
 
-LEARNING_RATE = 0.5  # Learning rate for Q-learning
-DISCOUNT = 0.99  # Discount factor for future rewards
+LEARNING_RATE = 0.9  # Learning rate for Q-learning
+DISCOUNT = 0.1  # Discount factor for future rewards
 
 # Defining objects in our environment
 CHARACTER_1 = 1
@@ -211,7 +211,7 @@ for episode in range(EPISODES):
     EPSILON *= EPSILON_DECAY  # Decay epsilon
 
     if episode >= EPISODES - 1:
-        with open(os.path.join(DIRECTORY, f"Simulation 2.1qq_{run_number}.pickle"), 'wb') as f:
+        with open(os.path.join(DIRECTORY, f"Simulation 2.1_{run_number}.pickle"), 'wb') as f:
             pickle.dump(q_table, f)
 
 # Plot the rewards over episodes

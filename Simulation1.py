@@ -10,9 +10,9 @@ import re
 style.use("ggplot")  # Set the plotting style
 
 SIZE = 20  # Size of the grid(world)
-EPISODES = 50  # Number of episodes we will run in our simulation
-MOVE_PENALTY = 10  # Penalty for moving (to discourage excessive movement)
-REWARD = 25  # Reward for reaching the landmark
+EPISODES = 100  # Number of episodes we will run in our simulation
+MOVE_PENALTY = 1  # Penalty for moving (to discourage excessive movement)
+REWARD = 1  # Reward for reaching the landmark
 
 EPSILON = 0.99  # Initial exploration rate
 EPSILON_DECAY = 0.9995  # Rate at which the exploration rate decays
@@ -177,3 +177,4 @@ plt.plot(np.arange(len(episode_rewards)), episode_rewards)
 plt.xlabel('Episode')
 plt.ylabel('Reward')
 plt.show()
+plt.savefig()

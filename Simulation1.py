@@ -12,12 +12,12 @@ EPISODES = 500
 MOVE_PENALTY = 1
 MOUNTAIN_REWARD = 10
 EPSILON = 0.99
-EPSILON_DECAY = 0.9997  # Slow down the decay to allow more exploration
+EPSILON_DECAY = 0.9997
 SHOW_EVERY = 25
-LEARNING_RATE = 0.1  # Adjust the learning rate
-DISCOUNT = 0.95  # Increase the discount factor for future rewards
+LEARNING_RATE = 0.1  
+DISCOUNT = 0.95
 
-TARGET = (SIZE - 1, SIZE // 2)  # Define the target location
+TARGET = (SIZE - 1, SIZE // 2)
 
 if 'q_table' not in globals():
     q_table = {}

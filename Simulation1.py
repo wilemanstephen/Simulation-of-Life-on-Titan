@@ -8,13 +8,13 @@ import re
 style.use("ggplot")
 
 SIZE = 20
-EPISODES = 500
+EPISODES = 10000 
 MOVE_PENALTY = 1
-MOUNTAIN_REWARD = 10
-EPSILON = 0.99
-EPSILON_DECAY = 0.9997
-SHOW_EVERY = 25
-LEARNING_RATE = 0.1  
+MOUNTAIN_REWARD = 300  
+EPSILON = 0.9
+EPSILON_DECAY = 0.9998
+SHOW_EVERY = 300  
+LEARNING_RATE = 0.1
 DISCOUNT = 0.95
 
 TARGET = (SIZE - 1, SIZE // 2)
@@ -35,8 +35,8 @@ if not os.path.exists(DIRECTORY):
 
 class AGENT:
     def __init__(self):
-        self.x = np.random.randint(0, SIZE)
-        self.y = np.random.randint(0, SIZE)
+        self.x = 0
+        self.y = SIZE - 1
 
     def action(self, choice):
         if choice == 0:
@@ -51,8 +51,6 @@ class AGENT:
     def move(self, x=False, y=False):
         self.x = np.clip(self.x + x, 0, SIZE - 1)
         self.y = np.clip(self.y + y, 0, SIZE - 1)
-
-
 
 def mountain(size):
     mountain = np.zeros((size, size))
@@ -74,15 +72,10 @@ def check_if_reached_target(character_x, character_y):
     return (character_x, character_y) == TARGET
 
 def get_mountain_proximity_reward(character_x, character_y, mountain_grid):
-    for y in range(SIZE):
-        for x in range(SIZE):
-            if mountain_grid[y, x] == 1:
-                distance = np.sqrt((x - character_x) ** 2 + (y - character_y) ** 2)
-                if distance == 0:
-                    return MOUNTAIN_REWARD
-                else:
-                    return 1 / distance
-    return -MOVE_PENALTY
+    if mountain_collision(character_x, character_y, mountain_grid):
+        return MOUNTAIN_REWARD
+    else:
+        return -MOVE_PENALTY
 
 def next_run_number(directory):
     max_num = 0
@@ -99,15 +92,15 @@ filename = f"{DIRECTORY}/Episode_rewards_{run_number}.jpg"
 
 for episode in range(EPISODES):
     character = AGENT()
-    episode_reward = 0
-
+    
     if episode % SHOW_EVERY == 0:
+        print(f"on #{episode}, epsilon is {EPSILON}")
         show = True
     else:
         show = False
-
+    
     episode_reward = 0
-
+    
     for i in range(200):
         obs = (character.x - TARGET[0], character.y - TARGET[1])
         if np.random.random() > EPSILON:
@@ -118,9 +111,6 @@ for episode in range(EPISODES):
 
         if mountain_collision(character.x, character.y, mountain_render):
             reward = get_mountain_proximity_reward(character.x, character.y, mountain_render)
-            print(f"Reached the mountain at episode {episode}")
-            episode_reward += reward
-            break
         else:
             reward = get_mountain_proximity_reward(character.x, character.y, mountain_render)
 
@@ -128,11 +118,16 @@ for episode in range(EPISODES):
         max_future_q = np.max(q_table.get(new_obs, np.zeros(4)))
         current_q = q_table[obs][action]
         if reward == MOUNTAIN_REWARD:
-            new_q = reward
+            new_q = MOUNTAIN_REWARD
         else:
             new_q = (1 - LEARNING_RATE) * current_q + LEARNING_RATE * (reward + DISCOUNT * max_future_q)
         q_table[obs][action] = new_q
+        
+        episode_reward += reward
 
+        if check_if_reached_target(character.x, character.y):
+            break
+        
         if show:
             env = np.zeros((SIZE, SIZE, 3), dtype=np.uint8)
             env = np.full((SIZE, SIZE, 3), 128, dtype=np.uint8)
@@ -147,14 +142,16 @@ for episode in range(EPISODES):
 
         episode_reward += reward
 
-        if check_if_reached_target(character.x, character.y):
-            break
-
     episode_rewards.append(episode_reward)
     EPSILON *= EPSILON_DECAY
 
-plt.plot(np.arange(len(episode_rewards)), episode_rewards)
-plt.xlabel('Episode')
+reward_array = np.array(episode_rewards)
+smoothed_rewards = np.convolve(reward_array, np.ones((SHOW_EVERY,))/SHOW_EVERY, mode='valid')
+
+smoothed_rewards += abs(min(smoothed_rewards))
+
+plt.plot(np.arange(len(smoothed_rewards)), smoothed_rewards)
+plt.xlabel('Episode #')
 plt.ylabel('Reward')
 plt.savefig(filename)
 plt.show()

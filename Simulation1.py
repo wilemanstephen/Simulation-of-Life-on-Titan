@@ -69,13 +69,7 @@ def mountain_collision(character_x, character_y, mountain_grid):
     return mountain_grid[character_y, character_x] > 0
 
 def check_if_reached_target(character_x, character_y):
-    return (character_x, character_y) == TARGET
-
-def get_mountain_proximity_reward(character_x, character_y, mountain_grid):
-    if mountain_collision(character_x, character_y, mountain_grid):
-        return MOUNTAIN_REWARD
-    else:
-        return -MOVE_PENALTY
+    return mountain_collision(character_x, character_y, mountain_render)
 
 def next_run_number(directory):
     max_num = 0
@@ -109,10 +103,9 @@ for episode in range(EPISODES):
             action = np.random.randint(0, 4)
         character.action(action)
 
+        reward = -MOVE_PENALTY
         if mountain_collision(character.x, character.y, mountain_render):
-            reward = get_mountain_proximity_reward(character.x, character.y, mountain_render)
-        else:
-            reward = get_mountain_proximity_reward(character.x, character.y, mountain_render)
+            reward = MOUNTAIN_REWARD
 
         new_obs = (character.x - TARGET[0], character.y - TARGET[1])
         max_future_q = np.max(q_table.get(new_obs, np.zeros(4)))
@@ -129,7 +122,6 @@ for episode in range(EPISODES):
             break
         
         if show:
-            env = np.zeros((SIZE, SIZE, 3), dtype=np.uint8)
             env = np.full((SIZE, SIZE, 3), 128, dtype=np.uint8)
             mountain_env = env.copy()
             mountain_env[mountain_render > 0] = (0, 0, 255)
@@ -140,17 +132,14 @@ for episode in range(EPISODES):
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
 
-        episode_reward += reward
-
     episode_rewards.append(episode_reward)
     EPSILON *= EPSILON_DECAY
 
 reward_array = np.array(episode_rewards)
 smoothed_rewards = np.convolve(reward_array, np.ones((SHOW_EVERY,))/SHOW_EVERY, mode='valid')
 
-smoothed_rewards += abs(min(smoothed_rewards))
-
 plt.plot(np.arange(len(smoothed_rewards)), smoothed_rewards)
+plt.ylim(0, max(smoothed_rewards) + 20)
 plt.xlabel('Episode #')
 plt.ylabel('Reward')
 plt.savefig(filename)

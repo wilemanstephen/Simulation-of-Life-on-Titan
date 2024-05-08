@@ -1,7 +1,7 @@
 import numpy as np
 import cv2
 from keras.models import Sequential
-from keras.layers import Dense, Dropout, Conv2D, MaxPooling2D, Activation, Flatten
+from keras.layers import Dense, Conv2D, Flatten
 from keras.optimizers import Adam
 from collections import deque
 import random
@@ -9,115 +9,119 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 import os
 
+SIZE = 20
+EPISODES = 10000
+SHOW_EVERY = 300
+MOVE_PENALTY = 1
+MOUNTAIN_REWARD = 300
+EPSILON_START = 0.9
+EPSILON_DECAY = 0.9998
+MIN_EPSILON = 0.01
+LEARNING_RATE = 0.001
+DISCOUNT = 0.95
+BATCH_SIZE = 32
+
+DIRECTORY = "EpisodeRewards"
+if not os.path.exists(DIRECTORY):
+    os.makedirs(DIRECTORY)
+
+def create_environment():
+    env = np.zeros((SIZE, SIZE, 3), dtype=np.uint8)
+    env[SIZE//2:, SIZE//2 - 3:SIZE//2 + 4] = (0, 0, 255)
+    return env
+
+def show_environment(env, agent_pos):
+    env_copy = env.copy()
+    cv2.circle(env_copy, (agent_pos[1], agent_pos[0]), 2, (0, 255, 0), -1)
+    img = cv2.resize(env_copy, (300, 300), interpolation=cv2.INTER_NEAREST)
+    cv2.imshow("Mountain Env", img)
+    cv2.waitKey(1)
+
 class DQNAgent:
-    def __init__(self, input_shape):
-        self.state_size = input_shape
-        self.action_size = 4  # Four possible actions
-        self.memory = deque(maxlen=2000)
-        self.gamma = 0.95  # discount factor
-        self.epsilon = 1.0  # exploration rate
-        self.epsilon_min = 0.01
-        self.epsilon_decay = 0.995
-        self.learning_rate = 0.001
+    def __init__(self):
         self.model = self.create_model()
+        self.epsilon = EPSILON_START
+        self.memory = deque(maxlen=2000)
+        self.agent_pos = [SIZE//2, 0]
 
     def create_model(self):
-        model = Sequential()
-        model.add(Conv2D(64, (3, 3), input_shape=self.state_size, padding='same', activation='relu'))
-        model.add(MaxPooling2D(pool_size=(2, 2)))
-        model.add(Conv2D(64, (3, 3), padding='same', activation='relu'))
-        model.add(MaxPooling2D(pool_size=(2, 2)))
-        model.add(Flatten())
-        model.add(Dense(64, activation='relu'))
-        model.add(Dense(self.action_size, activation='linear'))
-        model.compile(loss='mse', optimizer=Adam(lr=self.learning_rate))
+        model = Sequential([
+            Conv2D(256, (3, 3), padding='same', activation='relu', input_shape=(SIZE, SIZE, 3)),
+            Flatten(),
+            Dense(256, activation='relu'),
+            Dense(4, activation='linear')
+        ])
+        model.compile(loss='mse', optimizer=Adam(lr=LEARNING_RATE))
         return model
 
     def update_memory(self, state, action, reward, next_state, done):
         self.memory.append((state, action, reward, next_state, done))
 
-    def choose_action(self, state):
-        if np.random.rand() <= self.epsilon:
-            return np.random.randint(0, self.action_size)
-        act_values = self.model.predict(np.expand_dims(state, axis=0))
-        return np.argmax(act_values[0])
-
-    def replay(self):
-        if len(self.memory) < 32:
+    def train(self):
+        if len(self.memory) < BATCH_SIZE:
             return
-        minibatch = random.sample(self.memory, 32)
-        for state, action, reward, next_state, done in minibatch:
-            target = reward if done else reward + self.gamma * np.max(self.model.predict(next_state)[0])
-            target_f = self.model.predict(state)
-            target_f[0][action] = target
-            self.model.fit(state, target_f, epochs=1, verbose=0)
-        if self.epsilon > self.epsilon_min:
-            self.epsilon *= self.epsilon_decay
+        batch = random.sample(self.memory, BATCH_SIZE)
+        states, actions, rewards, next_states, dones = zip(*batch)
+        current_qs_list = self.model.predict(np.array(states))
+        next_qs_list = self.model.predict(np.array(next_states))
+        X = []
+        y = []
+        for i, (state, action, reward, next_state, done) in enumerate(batch):
+            if not done:
+                new_q = reward + DISCOUNT * np.max(next_qs_list[i])
+            else:
+                new_q = reward
+            current_qs = current_qs_list[i]
+            current_qs[action] = new_q
+            X.append(state)
+            y.append(current_qs)
+        self.model.fit(np.array(X), np.array(y), batch_size=BATCH_SIZE, verbose=0)
 
-    def save(self, filename):
-        self.model.save(filename)
+    def get_qs(self, state):
+        return self.model.predict(np.array(state).reshape(-1, *state.shape))[0]
 
-class Environment:
-    def __init__(self, size=10):
-        self.size = size
-        self.reset()
+    def action(self, choice):
+        moves = [(0, 1), (0, -1), (1, 0), (-1, 0)]
+        self.agent_pos[0] += moves[choice][0]
+        self.agent_pos[1] += moves[choice][1]
+        self.agent_pos[0] = max(0, min(SIZE - 1, self.agent_pos[0]))
+        self.agent_pos[1] = max(0, min(SIZE - 1, self.agent_pos[1]))
 
-    def reset(self):
-        self.player = np.array([self.size // 2, self.size // 2])
-        return self.get_state()
-
-    def step(self, action):
-        if action == 0:  # up
-            self.player[0] = max(0, self.player[0] - 1)
-        elif action == 1:  # down
-            self.player[0] = min(self.size - 1, self.player[0] + 1)
-        elif action == 2:  # left
-            self.player[1] = max(0, self.player[1] - 1)
-        elif action == 3:  # right
-            self.player[1] = min(self.size - 1, self.player[1] + 1)
-
-        done = np.array_equal(self.player, [self.size - 1, self.size // 2])
-        reward = 100 if done else -1
-        return self.get_state(), reward, done
-
-    def get_state(self):
-        state = np.zeros((self.size, self.size, 3), dtype=np.uint8)
-        state[self.player[0], self.player[1]] = [255, 0, 0]  # Red for player
-        state[self.size - 1, self.size // 2] = [0, 255, 0]  # Green for goal
-        return state
-
-    def render(self, state):
-        img = cv2.resize(state, (300, 300), interpolation=cv2.INTER_NEAREST)
-        cv2.imshow('Environment', img)
-        cv2.waitKey(1)
-
-# Main setup
-env = Environment(size=10)
-agent = DQNAgent(input_shape=(10, 10, 3))
-episodes = 1000
+env = create_environment()
+agent = DQNAgent()
+tqdm_bar = tqdm(range(EPISODES), desc='Training Progress')
 rewards = []
 
-for episode in tqdm(range(1, episodes + 1), ascii=True, unit='episode'):
-    state = env.reset()
-    total_reward = 0
+for episode in tqdm_bar:
+    state = env.copy()
+    episode_reward = 0
     done = False
 
     while not done:
-        action = agent.choose_action(state)
-        next_state, reward, done = env.step(action)
-        agent.update_memory(state, action, reward, next_state, done)
-        agent.replay()
-        state = next_state
-        total_reward += reward
-        env.render(state)
+        if np.random.random() > agent.epsilon:
+            action = np.argmax(agent.get_qs(state))
+        else:
+            action = np.random.randint(0, 4)
+        agent.action(action)
+        reward = MOUNTAIN_REWARD if (agent.agent_pos[1] >= SIZE//2 - 3 and agent.agent_pos[1] <= SIZE//2 + 3 and agent.agent_pos[0] >= SIZE//2) else -MOVE_PENALTY
+        done = agent.agent_pos[1] >= SIZE//2 - 3 and agent.agent_pos[1] <= SIZE//2 + 3 and agent.agent_pos[0] >= SIZE//2
+        new_state = env.copy()
+        agent.update_memory(state, action, reward, new_state, done)
+        agent.train()
+        state = new_state
+        episode_reward += reward
+        if episode % SHOW_EVERY == 0:
+            show_environment(env, agent.agent_pos)
 
-    rewards.append(total_reward)
-    if episode % 100 == 0:
-        agent.save(f'dqn_episode_{episode}.h5')
+    rewards.append(episode_reward)
+    tqdm_bar.set_postfix({'episode_reward': episode_reward})
+    agent.epsilon = max(agent.epsilon * EPSILON_DECAY, MIN_EPSILON)
 
-plt.plot(rewards)
-plt.xlabel('Episode')
-plt.ylabel('Total Reward')
-plt.show()
+    if episode % SHOW_EVERY == 0 or episode == EPISODES - 1:
+        plt.plot(rewards)
+        plt.xlabel('Episode')
+        plt.ylabel('Reward')
+        plt.savefig(f"{DIRECTORY}/Episode_rewards_{episode}.jpg")
+        plt.close()
 
 cv2.destroyAllWindows()

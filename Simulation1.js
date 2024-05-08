@@ -66,7 +66,7 @@ document.addEventListener("DOMContentLoaded", function () {
         let collision = mountainRender[agent.y][agent.x] === 1;
         if (collision) {
             mountainTouches++;
-            simulationActive = false; // Stop simulation on collision
+            simulationActive = false;
         }
         let reward = collision ? MOUNTAIN_REWARD : -MOVE_PENALTY;
         let obs = `${agent.x},${agent.y}`;
@@ -90,7 +90,7 @@ document.addEventListener("DOMContentLoaded", function () {
         epsilon = 0.9;
         qTable = {};
         mountainTouches = 0;
-        resetCount = 0; // Reset the count on clear memory
+        resetCount = 0;
         simulationActive = true;
         simulate();
     };

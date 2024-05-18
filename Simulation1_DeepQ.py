@@ -1,127 +1,134 @@
-import numpy as np
-import cv2
-from keras.models import Sequential
-from keras.layers import Dense, Conv2D, Flatten
-from keras.optimizers import Adam
-from collections import deque
-import random
-from tqdm import tqdm
-import matplotlib.pyplot as plt
 import os
+import sys
+import io
+import cv2
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib import style
+from tqdm import tqdm
+import tensorflow as tf
+from collections import deque
+import re
+
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+style.use("ggplot")
 
 SIZE = 20
 EPISODES = 10000
-SHOW_EVERY = 300
 MOVE_PENALTY = 1
 MOUNTAIN_REWARD = 300
-EPSILON_START = 0.9
-EPSILON_DECAY = 0.9998
-MIN_EPSILON = 0.01
+EPSILON = 0.9
+EPSILON_DECAY = 0.99975
+SHOW_EVERY = 1000  # Changed from 300 to 1000
 LEARNING_RATE = 0.001
 DISCOUNT = 0.95
-BATCH_SIZE = 32
+TARGET = (SIZE - 1, SIZE // 2)
+CHARACTER_1 = 1
+PASTEL = {1: (0, 255, 0)}
 
-DIRECTORY = "EpisodeRewards"
+DIRECTORY = "DATA_S1_DeepQ"
 if not os.path.exists(DIRECTORY):
     os.makedirs(DIRECTORY)
 
-def create_environment():
-    env = np.zeros((SIZE, SIZE, 3), dtype=np.uint8)
-    env[SIZE//2:, SIZE//2 - 3:SIZE//2 + 4] = (0, 0, 255)
-    return env
+def next_run_number(directory):
+    max_num = 0
+    for filename in os.listdir(directory):
+        match = re.match(r"Episode_rewards_(\d+).jpg", filename)
+        if match:
+            num = int(match.group(1))
+            if num > max_num:
+                max_num = num
+    return max_num + 1
 
-def show_environment(env, agent_pos):
-    env_copy = env.copy()
-    cv2.circle(env_copy, (agent_pos[1], agent_pos[0]), 2, (0, 255, 0), -1)
-    img = cv2.resize(env_copy, (300, 300), interpolation=cv2.INTER_NEAREST)
-    cv2.imshow("Mountain Env", img)
-    cv2.waitKey(1)
+run_number = next_run_number(DIRECTORY)
+filename = f"{DIRECTORY}/Episode_rewards_{run_number}.jpg"
 
-class DQNAgent:
+class AGENT:
     def __init__(self):
-        self.model = self.create_model()
-        self.epsilon = EPSILON_START
-        self.memory = deque(maxlen=2000)
-        self.agent_pos = [SIZE//2, 0]
-
-    def create_model(self):
-        model = Sequential([
-            Conv2D(256, (3, 3), padding='same', activation='relu', input_shape=(SIZE, SIZE, 3)),
-            Flatten(),
-            Dense(256, activation='relu'),
-            Dense(4, activation='linear')
-        ])
-        model.compile(loss='mse', optimizer=Adam(lr=LEARNING_RATE))
-        return model
-
-    def update_memory(self, state, action, reward, next_state, done):
-        self.memory.append((state, action, reward, next_state, done))
-
-    def train(self):
-        if len(self.memory) < BATCH_SIZE:
-            return
-        batch = random.sample(self.memory, BATCH_SIZE)
-        states, actions, rewards, next_states, dones = zip(*batch)
-        current_qs_list = self.model.predict(np.array(states))
-        next_qs_list = self.model.predict(np.array(next_states))
-        X = []
-        y = []
-        for i, (state, action, reward, next_state, done) in enumerate(batch):
-            if not done:
-                new_q = reward + DISCOUNT * np.max(next_qs_list[i])
-            else:
-                new_q = reward
-            current_qs = current_qs_list[i]
-            current_qs[action] = new_q
-            X.append(state)
-            y.append(current_qs)
-        self.model.fit(np.array(X), np.array(y), batch_size=BATCH_SIZE, verbose=0)
-
-    def get_qs(self, state):
-        return self.model.predict(np.array(state).reshape(-1, *state.shape))[0]
+        self.x = 0
+        self.y = SIZE - 1
 
     def action(self, choice):
-        moves = [(0, 1), (0, -1), (1, 0), (-1, 0)]
-        self.agent_pos[0] += moves[choice][0]
-        self.agent_pos[1] += moves[choice][1]
-        self.agent_pos[0] = max(0, min(SIZE - 1, self.agent_pos[0]))
-        self.agent_pos[1] = max(0, min(SIZE - 1, self.agent_pos[1]))
+        if choice == 0:
+            self.move(1, 0)
+        elif choice == 1:
+            self.move(-1, 0)
+        elif choice == 2:
+            self.move(0, 1)
+        elif choice == 3:
+            self.move(0, -1)
 
-env = create_environment()
-agent = DQNAgent()
-tqdm_bar = tqdm(range(EPISODES), desc='Training Progress')
-rewards = []
+    def move(self, x, y):
+        self.x = np.clip(self.x + x, 0, SIZE - 1)
+        self.y = np.clip(self.y + y, 0, SIZE - 1)
 
-for episode in tqdm_bar:
-    state = env.copy()
+def mountain(size):
+    mountain = np.zeros((size, size))
+    peak_height = size // 4
+    base_width = size // 4
+    base_start_col = size - base_width
+    for i in range(peak_height):
+        start = base_start_col + (peak_height - i - 1)
+        end = size - (peak_height - i - 1)
+        mountain[i, start:end] = 1
+    return mountain
+
+mountain_render = mountain(SIZE)
+
+def mountain_collision(character_x, character_y, mountain_grid):
+    return mountain_grid[character_y, character_x] > 0
+
+def check_if_reached_target(character_x, character_y):
+    return mountain_collision(character_x, character_y, mountain_render)
+
+model = tf.keras.Sequential([
+    tf.keras.layers.Input(shape=(2,)),
+    tf.keras.layers.Dense(24, activation='relu'),
+    tf.keras.layers.Dense(24, activation='relu'),
+    tf.keras.layers.Dense(4, activation='linear')
+])
+model.compile(optimizer='adam', loss='mse')
+
+target_model = tf.keras.models.clone_model(model)
+target_model.set_weights(model.get_weights())
+replay_memory = deque(maxlen=20000)
+
+episode_rewards = []
+for episode in tqdm(range(EPISODES), ascii=True, unit='episodes'):
+    character = AGENT()
     episode_reward = 0
-    done = False
-
-    while not done:
-        if np.random.random() > agent.epsilon:
-            action = np.argmax(agent.get_qs(state))
+    for i in range(200):
+        obs = np.array([character.x - TARGET[0], character.y - TARGET[1]])
+        if np.random.random() > EPSILON:
+            action = np.argmax(model.predict(obs.reshape(1, -1))[0])
         else:
             action = np.random.randint(0, 4)
-        agent.action(action)
-        reward = MOUNTAIN_REWARD if (agent.agent_pos[1] >= SIZE//2 - 3 and agent.agent_pos[1] <= SIZE//2 + 3 and agent.agent_pos[0] >= SIZE//2) else -MOVE_PENALTY
-        done = agent.agent_pos[1] >= SIZE//2 - 3 and agent.agent_pos[1] <= SIZE//2 + 3 and agent.agent_pos[0] >= SIZE//2
-        new_state = env.copy()
-        agent.update_memory(state, action, reward, new_state, done)
-        agent.train()
-        state = new_state
+        character.action(action)
+        reward = MOUNTAIN_REWARD if mountain_collision(character.x, character.y, mountain_render) else -MOVE_PENALTY
+        done = check_if_reached_target(character.x, character.y)
         episode_reward += reward
+        if done:
+            break
         if episode % SHOW_EVERY == 0:
-            show_environment(env, agent.agent_pos)
-
-    rewards.append(episode_reward)
-    tqdm_bar.set_postfix({'episode_reward': episode_reward})
-    agent.epsilon = max(agent.epsilon * EPSILON_DECAY, MIN_EPSILON)
-
-    if episode % SHOW_EVERY == 0 or episode == EPISODES - 1:
-        plt.plot(rewards)
-        plt.xlabel('Episode')
-        plt.ylabel('Reward')
-        plt.savefig(f"{DIRECTORY}/Episode_rewards_{episode}.jpg")
-        plt.close()
+            env = np.zeros((SIZE, SIZE, 3), dtype=np.uint8)
+            env[mountain_render == 1] = (0, 0, 255)
+            env[character.y, character.x] = PASTEL[CHARACTER_1]
+            env = cv2.resize(env, (300, 300), interpolation=cv2.INTER_NEAREST)
+            cv2.imshow('Game', env)
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
+    EPSILON *= EPSILON_DECAY
+    episode_rewards.append(episode_reward)
 
 cv2.destroyAllWindows()
+
+reward_array = np.array(episode_rewards)
+smoothed_rewards = np.convolve(reward_array, np.ones((SHOW_EVERY,))/SHOW_EVERY, mode='valid')
+plt.plot(np.arange(len(smoothed_rewards)), smoothed_rewards)
+plt.ylim(0, max(smoothed_rewards) + 20)
+plt.xlabel('Episode #')
+plt.ylabel('Reward')
+plt.savefig(filename)
+plt.show()

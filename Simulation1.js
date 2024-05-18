@@ -92,6 +92,7 @@ document.addEventListener("DOMContentLoaded", function () {
         mountainTouches = 0;
         resetCount = 0;
         simulationActive = true;
+        agent = new Agent
         simulate();
     };
 

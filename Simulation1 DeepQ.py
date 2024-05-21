@@ -16,19 +16,19 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 style.use("ggplot")
 
 SIZE = 20
-EPISODES = 10000
+EPISODES = 1000
 MOVE_PENALTY = 1
 MOUNTAIN_REWARD = 300
 EPSILON = 0.9
 EPSILON_DECAY = 0.99975
-SHOW_EVERY = 1000
+SHOW_EVERY = 100
 LEARNING_RATE = 0.001
 DISCOUNT = 0.95
 TARGET = (SIZE - 1, SIZE // 2)
 CHARACTER_1 = 1
 PASTEL = {1: (0, 255, 0)}
 
-DIRECTORY = "DATA_S1_DeepQ"
+DIRECTORY = "Data S1 DeepQ"
 if not os.path.exists(DIRECTORY):
     os.makedirs(DIRECTORY)
 
@@ -113,6 +113,7 @@ for episode in tqdm(range(EPISODES), ascii=True, unit='episodes'):
             break
         if episode % SHOW_EVERY == 0:
             env = np.zeros((SIZE, SIZE, 3), dtype=np.uint8)
+            env[:] = [120, 120, 120]
             env[mountain_render == 1] = (0, 0, 255)
             env[character.y, character.x] = PASTEL[CHARACTER_1]
             env = cv2.resize(env, (300, 300), interpolation=cv2.INTER_NEAREST)
@@ -126,8 +127,9 @@ cv2.destroyAllWindows()
 
 reward_array = np.array(episode_rewards)
 smoothed_rewards = np.convolve(reward_array, np.ones((SHOW_EVERY,))/SHOW_EVERY, mode='valid')
-plt.plot(np.arange(len(smoothed_rewards)), smoothed_rewards)
-plt.ylim(0, max(smoothed_rewards) + 20)
+plt.figure(facecolor='white')
+plt.plot(np.arange(len(smoothed_rewards)), smoothed_rewards, color='red')
+plt.ylim(min(smoothed_rewards) - 20, max(smoothed_rewards) + 20)
 plt.xlabel('Episode #')
 plt.ylabel('Reward')
 plt.savefig(filename)

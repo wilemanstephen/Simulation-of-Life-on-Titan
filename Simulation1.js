@@ -5,7 +5,7 @@ document.addEventListener("DOMContentLoaded", function () {
     const SIZE = 20;
     const MOVE_PENALTY = 1;
     const MOUNTAIN_REWARD = 300;
-    const EPSILON_DECAY = 0.9998;
+    const EPSILON_DECAY = 0.9995;
     const LEARNING_RATE = 0.1;
     const DISCOUNT = 0.95;
     const SCALE = canvas.width / SIZE;
@@ -15,6 +15,8 @@ document.addEventListener("DOMContentLoaded", function () {
     let resetCount = 0;
     let mountainTouches = 0;
     let simulationActive = true;
+    let startTime = Date.now();
+    let elapsedTime = 0;
 
     function Agent() {
         this.x = 0;
@@ -22,6 +24,9 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     Agent.prototype.action = function(choice) {
+        if (Math.random() < epsilon) {
+            choice = Math.floor(Math.random() * 4); 
+        }
         if (choice === 0) this.x = Math.max(this.x - 1, 0);
         else if (choice === 1) this.x = Math.min(this.x + 1, SIZE - 1);
         else if (choice === 2) this.y = Math.max(this.y - 1, 0);
@@ -56,17 +61,19 @@ document.addEventListener("DOMContentLoaded", function () {
         ctx.arc(agent.x * SCALE + SCALE / 2, agent.y * SCALE + SCALE / 2, SCALE / 2, 0, 2 * Math.PI);
         ctx.fillStyle = 'green';
         ctx.fill();
-        infoBox.textContent = `Resets: ${resetCount}, Mountain Touches: ${mountainTouches}, Agent Position: (${agent.x}, ${agent.y}), Epsilon: ${epsilon.toFixed(4)}`;
+        elapsedTime = (Date.now() - startTime) / 1000;
+        infoBox.textContent = `Elapsed Time: ${elapsedTime.toFixed(2)}s, Resets: ${resetCount}, Mountain Touches: ${mountainTouches}, Agent Position: (${agent.x}, ${agent.y}), Epsilon: ${epsilon.toFixed(4)}`;
     }
 
     function simulate() {
         if (!simulationActive) return;
-        let action = Math.floor(Math.random() * 4);
+        let action = agent.x == 0 && agent.y == 0 ? 1 : Math.floor(Math.random() * 4);
         agent.action(action);
         let collision = mountainRender[agent.y][agent.x] === 1;
         if (collision) {
             mountainTouches++;
             simulationActive = false;
+            console.log(`Mountain reached at time: ${elapsedTime.toFixed(2)}s`);
         }
         let reward = collision ? MOUNTAIN_REWARD : -MOVE_PENALTY;
         let obs = `${agent.x},${agent.y}`;
@@ -83,6 +90,7 @@ document.addEventListener("DOMContentLoaded", function () {
         simulationActive = true;
         resetCount++;
         agent = new Agent();
+        startTime = Date.now();
         simulate();
     };
 
@@ -92,7 +100,8 @@ document.addEventListener("DOMContentLoaded", function () {
         mountainTouches = 0;
         resetCount = 0;
         simulationActive = true;
-        agent = new Agent
+        agent = new Agent();
+        startTime = Date.now();
         simulate();
     };
 

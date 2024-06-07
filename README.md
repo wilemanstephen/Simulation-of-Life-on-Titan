@@ -11,3 +11,5 @@ pip install tqdm |
 pip install tensorflow |
 
 To run the programme type in cmd just go to the directory where the file is located and type 'python filename.py'
+
+The Simulation of Life on Titan website can be found at this link: https://wilemanstephen.github.io

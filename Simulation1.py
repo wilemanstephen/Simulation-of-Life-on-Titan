@@ -13,7 +13,7 @@ MOVE_PENALTY = 1
 MOUNTAIN_REWARD = 300  
 EPSILON = 0.9
 EPSILON_DECAY = 0.9998
-SHOW_EVERY = 500
+SHOW_EVERY = 75
 LEARNING_RATE = 0.1
 DISCOUNT = 0.95
 
@@ -128,8 +128,8 @@ for episode in range(EPISODES):
             mountain_env = cv2.resize(mountain_env, (300,300), interpolation=cv2.INTER_NEAREST)
             character_position = (int(character.x * 300 / SIZE), int(character.y * 300 / SIZE))
             cv2.circle(mountain_env, character_position, 15, PASTEL[CHARACTER_1], -1)
-            cv2.imshow("Mountain Env", mountain_env)
-            if cv2.waitKey(1) & 0xFF == ord('q'):
+            cv2.imshow("Simulation", mountain_env)
+            if cv2.waitKey(3) & 0xFF == ord('q'):
                 break
 
     episode_rewards.append(episode_reward)

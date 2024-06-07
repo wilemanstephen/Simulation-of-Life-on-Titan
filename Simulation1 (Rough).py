@@ -9,7 +9,7 @@ import re
 style.use("ggplot")
 
 SIZE = 10
-EPISODES = 500
+EPISODES = 10000
 MOVE_PENALTY = 1
 REWARD = 10
 
@@ -111,8 +111,8 @@ for episode in range(EPISODES):
             env[character.y][character.x] = PASTEL[CHARACTER_1]
             img = Image.fromarray(env, 'RGB')
             img = img.resize((300, 300), Image.NEAREST)
-            cv2.imshow("image", np.array(img))
-            if reward == REWARD or cv2.waitKey(1) & 0xFF == ord('q'):
+            cv2.imshow("Simulation", np.array(img))
+            if reward == REWARD or cv2.waitKey(5) & 0xFF == ord('q'):
                 break
 
         episode_reward += reward

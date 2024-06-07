@@ -4,9 +4,10 @@ Libraries needed to be installed for simulation:
 
 In cmd write:
 
-numpy: pip install numpy
-cv2: pip install opencv-python
-matplotlib: pip install matplotlib
-pickle: pip install pypickle
-os: pip install os-sys
-re: pip install re
+pip install numpy |
+pip install opencv-python |
+pip install matplotlib |
+pip install tqdm |
+pip install tensorflow |
+
+To run the programme type in cmd just go to the directory where the file is located and type 'python filename.py'
